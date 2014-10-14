@@ -1,0 +1,151 @@
+<script>
+/**
+ * SSL 前端拦截脚本 v0.0.1
+ */
+(function() {
+	// 放弃不支持 DOM-API 的浏览器（IE67）
+	if (!window.Window) {
+		return;
+	}
+
+	var R_HTTPS = /^https:/i;
+	var FAKE_SYMBOL = 'zh_cn';
+
+	/**
+	 * 向下转型 https url
+	 *   将协议替换成 http，
+	 *   并在 url 里做上特殊记号，能让代理识别到。
+	 */
+	function downgradeUrl(url) {
+		return url.replace(R_HTTPS, 'http:') +
+					(/\?/.test(url) ? '&' : '?') + FAKE_SYMBOL;
+	}
+
+	// 钩子系统
+	function hook(ns, key, factory) {
+		if (!ns.hasOwnProperty(key)) {
+			return;
+		}
+		var old = ns[key];
+		var cur = factory(old);
+		cur._str_ = old + '';
+		ns[key] = cur;
+	}
+
+	// 隐藏钩子源码
+	function toString_factory(oldFn) {
+		return function() {
+			return this._str_ || oldFn.apply(this, arguments);
+		};
+	}
+	hook(Function.prototype, 'toString', toString_factory);
+	hook(Function.prototype, 'toSource', toString_factory);
+
+	//
+	// 监控 window.open 访问 https
+	//
+	function winopen_factory(oldFn) {
+		return function(url) {
+			arguments[0] = downgradeUrl(url);
+			return oldFn.apply(this, arguments);
+		};
+	}
+
+	hook(Window.prototype, 'open', winopen_factory);
+	hook(window, 'open', winopen_factory);  // for firefox
+
+	//
+	// 监控超链接访问 https
+	//
+	document.addEventListener('click', function(e) {
+		var el = e.target;
+		do {
+			if (el.tagName == 'A') {
+				if (el.protocol == 'https:') {
+					hookLink(el);
+				}
+				break;
+			}
+		} while(el = el.parentNode);
+	}, true);
+
+
+	function hookLink(link) {
+		//
+		// 仅对 Event.AT_TARGET 阶段做拦截，
+		// 这样不会影响该元素原有的点击事件。
+		//
+		var onclick = link.onclick;
+
+		link.onclick = function(e) {
+			// 执行原回调
+			var ret, err;
+			if (typeof onclick == 'function') {
+				try {
+					ret = onclick.apply(this, arguments);
+				}
+				catch(e) {
+					err = e;
+				}
+			}
+
+			// 暂时改成 http 链接
+			var url = link.href;
+			link.href = downgradeUrl(url);
+			link.onclick = onclick;
+
+			// 执行完还原
+			setTimeout(function() {
+				link.href = url;
+			}, 0);
+
+			if (err) throw err;
+			return ret;
+		};
+	}
+
+	//
+	// 监控提交到 https 的表单
+	//
+	document.addEventListener('submit', function(e) {
+		var el = e.target;
+		var url = el.action;
+
+		if (!R_HTTPS.test(url)) {
+			return;
+		}
+		el.action = downgradeUrl(url);
+		setTimeout(function() {
+			el.action = url;
+		}, 0);
+	}, true);
+
+	//
+	// 替换页面中的框架页
+	//
+	function onStaticElement(el) {
+		if (el.tagName == 'IFRAME') {
+			if (R_HTTPS.test(el.src)) {
+				el.src = downgradeUrl(el.src);
+			}
+		}
+	}
+
+	if (window.MutationObserver) {
+		var observer = new MutationObserver(function(records) {
+			for (var i = records.length - 1; i >= 0; i--) {
+				var record = records[i];
+				var nodes = record.addedNodes;
+
+				for (var j = nodes.length - 1; j >= 0; j--) {
+					onStaticElement(nodes[j]);
+				}
+			}
+		});
+		observer.observe(document, {
+			subtree: true,
+			childList: true
+		});
+	}
+})();
+</script>
