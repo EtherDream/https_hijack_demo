@@ -118,11 +118,11 @@ function forward(req, res, ssl) {
     });
 
     //
-	// NodeJS 把 HTTP 字段全都转为小写了，
-	// 一些网站（例如 QQ 空间）无法登录。
-	// 我们至少保证 Host 仍有大小写
-	//
-	midReq.setHeader('Host', req.headers.host);
+    // NodeJS 把 头部字段名 全都转为小写了，
+    // 一些网站（例如 QQ 空间）无法登录。
+    // 我们至少保证 `Host` 仍有大小写
+    //
+    midReq.setHeader('Host', host);
 
 
     if (req._data) {
