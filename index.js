@@ -1,5 +1,7 @@
 /**
- * Https Downgrade Proxy v0.0.1
+ * Https Downgrade Proxy
+ *   @version 0.0.1
+ *   @author EtherDream
  */
 'use strict';
 
@@ -159,8 +161,10 @@ function handleResponse(clientReq, clientRes, serverRes) {
 
     // SSL 相关检测
     if (sslCheck(clientReq, clientRes, serverRes) == 'redir') {
-        return;
+         // 代理 https 重定向
+        return forward(clientReq, clientRes, true); 
     }
+
 
     // 非网页资源：直接转发
     var mime = svrHeader['content-type'] || '';
@@ -332,9 +336,6 @@ function sslCheck(clientReq, clientRes, serverRes) {
 
             // 记录该地址为 https 资源
             addFakeUrl('http://' + parser.host + parser.path);
-
-            // 以 https 的方式重新请求
-            forward(clientReq, clientRes, true);
             return 'redir';
         }
     }
