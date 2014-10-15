@@ -168,7 +168,7 @@ function handleResponse(clientReq, clientRes, serverRes) {
     if (pos >= 0) {
         mime = mime.substr(0, pos);
     }
-    if (mime != 'text/html' || !mInjectHtml) {
+    if (mime != 'text/html') {
         clientRes.writeHead(serverRes.statusCode, svrHeader);
         serverRes.pipe(clientRes);
         return;
@@ -219,8 +219,9 @@ function handleResponse(clientReq, clientRes, serverRes) {
         delete svrHeader['content-encoding'];
     }
 
+    // 处理数据流注入
     processInject(istream, ostream);
-    clientRes.writeHead(serverRes.statusCode, serverRes.headers);
+    clientRes.writeHead(serverRes.statusCode, svrHeader);
 }
 
 
