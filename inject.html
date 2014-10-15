@@ -1,6 +1,8 @@
 <script>
 /**
- * SSL 前端拦截脚本 v0.0.1
+ * SSL 前端拦截脚本
+ *   @version 0.0.2
+ *   @author EtherDream 
  */
 (function() {
 	// 放弃不支持 DOM-API 的浏览器（IE67）
@@ -62,7 +64,7 @@
 		do {
 			if (el.tagName == 'A') {
 				if (el.protocol == 'https:') {
-					hookLink(el);
+					hookEvent(el, 'onclick', 'href');
 				}
 				break;
 			}
@@ -70,19 +72,19 @@
 	}, true);
 
 
-	function hookLink(link) {
+	function hookEvent(el, eventName, urlProp) {
 		//
 		// 仅对 Event.AT_TARGET 阶段做拦截，
-		// 这样不会影响该元素原有的点击事件。
+		// 这样不会影响该元素的原有事件。
 		//
-		var onclick = link.onclick;
+		var onevent = el[eventName];
 
-		link.onclick = function(e) {
+		el[eventName] = function(e) {
 			// 执行原回调
 			var ret, err;
-			if (typeof onclick == 'function') {
+			if (typeof onevent == 'function') {
 				try {
-					ret = onclick.apply(this, arguments);
+					ret = onevent.apply(this, arguments);
 				}
 				catch(e) {
 					err = e;
@@ -90,13 +92,13 @@
 			}
 
 			// 暂时改成 http 链接
-			var url = link.href;
-			link.href = downgradeUrl(url);
-			link.onclick = onclick;
+			var url = el[urlProp];
+			el[urlProp] = downgradeUrl(url);
+			el[eventName] = onevent;
 
 			// 执行完还原
 			setTimeout(function() {
-				link.href = url;
+				el[urlProp] = url;
 			}, 0);
 
 			if (err) throw err;
@@ -111,13 +113,9 @@
 		var el = e.target;
 		var url = el.action;
 
-		if (!R_HTTPS.test(url)) {
-			return;
+		if (R_HTTPS.test(url)) {
+			hookEvent(el, 'onsubmit', 'action');
 		}
-		el.action = downgradeUrl(url);
-		setTimeout(function() {
-			el.action = url;
-		}, 0);
 	}, true);
 
 	//
