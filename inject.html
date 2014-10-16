@@ -5,8 +5,8 @@
  *   @author EtherDream 
  */
 (function() {
-	// 放弃不支持 DOM-API 的浏览器（IE67）
-	if (!window.Window) {
+	// 放弃 IE67 （IE8 暂时不支持，以后再考虑）
+	if (!window.addEventListener) {
 		return;
 	}
 
@@ -48,7 +48,7 @@
 	//
 	function winopen_factory(oldFn) {
 		return function(url) {
-			arguments[0] = downgradeUrl(url);
+			arguments[0] = downgradeUrl(url + '');
 			return oldFn.apply(this, arguments);
 		};
 	}
@@ -94,12 +94,14 @@
 			// 暂时改成 http 链接
 			var url = el[urlProp];
 			el[urlProp] = downgradeUrl(url);
-			el[eventName] = onevent;
 
 			// 执行完还原
 			setTimeout(function() {
 				el[urlProp] = url;
 			}, 0);
+
+			// 删除钩子
+			el[eventName] = onevent;
 
 			if (err) throw err;
 			return ret;
