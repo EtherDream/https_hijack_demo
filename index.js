@@ -189,7 +189,6 @@ function handleResponse(clientReq, clientRes, serverRes) {
 
             if (R_GZIP.test(usrEnc)) {
                 ostream = $zlib.createGzip();
-                svrHeader['content-encoding'] = 'gzip';
             }
         }
         else if (R_DEFLATE.test(svrEnc)) {    // - DEFALTE 算法
@@ -197,7 +196,6 @@ function handleResponse(clientReq, clientRes, serverRes) {
 
             if (R_DEFLATE.test(usrEnc)) {
                 ostream = $zlib.createDeflateRaw();
-                svrHeader['content-encoding'] = 'deflate';
             }
         }
     }
