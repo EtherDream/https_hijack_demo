@@ -226,6 +226,8 @@ function handleResponse(clientReq, clientRes, serverRes) {
 
     // 利用 CSP 策略，阻止访问 https 框架页
     svrHeader["content-security-policy"] = CSP_BLOCK_HTTPS;
+
+    // 返回响应头
     clientRes.writeHead(serverRes.statusCode, svrHeader);
 
     // 处理数据流注入
