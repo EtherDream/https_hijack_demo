@@ -178,6 +178,7 @@ function handleResponse(clientReq, clientRes, serverRes) {
         return;
     }
 
+
     // 数据流压缩
     var istream, ostream,
         svrEnc = svrHeader['content-encoding'],
@@ -221,9 +222,12 @@ function handleResponse(clientReq, clientRes, serverRes) {
         delete svrHeader['content-encoding'];
     }
 
+    // 利用 CSP 策略，阻止访问 https 框架页
+    svrHeader["content-security-policy"] = "default-src * data 'unsafe-inline' 'unsafe-eval'; frame-src http://*";
+    clientRes.writeHead(serverRes.statusCode, svrHeader);
+
     // 处理数据流注入
     processInject(istream, ostream);
-    clientRes.writeHead(serverRes.statusCode, svrHeader);
 }
 
 
@@ -288,11 +292,11 @@ function processInject(istream, ostream) {
 
 
 // -------------------- sslproxy --------------------
-var FAKE_SYMBOL = /zh_cn$/;
-var mFakeUrl = {};
+var FAKE_SYMBOL = /[?&]zh_cn$/;
+var mFakeSet = {};
 
 function isFakeUrl(url) {
-    return (url in mFakeUrl) || FAKE_SYMBOL.test(url);
+    return (url in mFakeSet) || FAKE_SYMBOL.test(url);
 }
 
 function restoreFakeUrl(url) {
@@ -300,7 +304,7 @@ function restoreFakeUrl(url) {
 }
 
 function addFakeUrl(url) {
-    mFakeUrl[url] = true;
+    mFakeSet[url] = true;
 }
 
 function sslCheck(clientReq, clientRes, serverRes) {
@@ -313,19 +317,16 @@ function sslCheck(clientReq, clientRes, serverRes) {
     var cookies = svrHeader['set-cookie'];
     if (cookies) {
         for(var i = cookies.length - 1; i >= 0; i--) {
-            var cookie = cookies[i];
-            if (/secure$/.test(cookie)) {
-                cookies[i] = cookie.split(';')[0];
-            }
+            cookies[i] = cookies[i].replace(/;\s*secure/, '');
         }
     }
 
     // 是否重定向到 HTTPS
     var statusCode = serverRes.statusCode;
-    if (301 <= statusCode && statusCode <= 303) {
+    if (statusCode != 304 && 300 < statusCode && statusCode < 400) {
 
-        var redir = svrHeader['location'] || '';
-        if (/^https:/i.test(redir)) {
+        var redir = svrHeader['location'];
+        if (redir && /^https:/i.test(redir)) {
             console.warn('[!] redir to:', redir);
 
             var parser = $url.parse(redir);
