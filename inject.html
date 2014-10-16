@@ -113,9 +113,8 @@
 	//
 	document.addEventListener('submit', function(e) {
 		var el = e.target;
-		var url = el.action;
 
-		if (R_HTTPS.test(url)) {
+		if (R_HTTPS.test(el.action)) {
 			hookEvent(el, 'onsubmit', 'action');
 		}
 	}, true);
@@ -123,7 +122,7 @@
 	//
 	// 替换页面中的框架页
 	//
-	function onStaticElement(el) {
+	function scanNode(el) {
 		if (el.tagName == 'IFRAME') {
 			if (R_HTTPS.test(el.src)) {
 				el.src = downgradeUrl(el.src);
@@ -131,21 +130,32 @@
 		}
 	}
 
+	function scanNodes(nodes) {
+		for (var i = 0, n = nodes.length; i < n; i++) {
+			scanNode(nodes[i]);
+		}
+	}
+
 	if (window.MutationObserver) {
 		var observer = new MutationObserver(function(records) {
-			for (var i = records.length - 1; i >= 0; i--) {
-				var record = records[i];
-				var nodes = record.addedNodes;
-
-				for (var j = nodes.length - 1; j >= 0; j--) {
-					onStaticElement(nodes[j]);
-				}
+			for (var i = 0, n = records.length; i < n; i++) {
+				scanNodes(records[i].addedNodes);
 			}
 		});
 		observer.observe(document, {
 			subtree: true,
 			childList: true
 		});
+	}
+	else {
+		// 通过 window.frames 监控框架
+		var lastNum;
+		setInterval(function() {
+			if (lastNum != frames.length) {
+				lastNum = frames.length;
+				scanNodes(frames);
+			}
+		}, 10);
 	}
 })();
 </script>
