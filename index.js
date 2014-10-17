@@ -1,6 +1,6 @@
 /**
  * Https Downgrade Proxy
- *   @version 0.0.2
+ *   @version 0.0.3
  *   @author EtherDream
  */
 'use strict';
@@ -11,6 +11,7 @@ var $http = require('http'),
     $url = require('url'),
     $fs = require('fs');
 
+// 阻止 https 框架页
 var CSP_BLOCK_HTTPS = "default-src * data 'unsafe-inline' 'unsafe-eval'; frame-src http://*";
 
 
@@ -321,7 +322,7 @@ function sslCheck(clientReq, clientRes, serverRes) {
     var cookies = svrHeader['set-cookie'];
     if (cookies) {
         for(var i = cookies.length - 1; i >= 0; i--) {
-            cookies[i] = cookies[i].replace(/;\s*secure/, '');
+            cookies[i] = cookies[i].replace(/;\s*secure/i, '');
         }
     }
 
