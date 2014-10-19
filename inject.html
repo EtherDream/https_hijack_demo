@@ -49,7 +49,7 @@
 	function winopen_factory(oldFn) {
 		return function(url) {
 			if (url) {
-				arguments[0] = downgradeUrl(url + '');
+				arguments[0] = downgradeUrl(url);
 			}
 			return oldFn.apply(this, arguments);
 		};

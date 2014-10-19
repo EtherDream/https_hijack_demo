@@ -67,7 +67,7 @@ function onRequest(req, res) {
     }
 
     // 只允许我们支持的算法
-	headers['accept-encoding'] = 'gzip,deflate';
+    headers['accept-encoding'] = 'gzip,deflate';
 
     // 是否为向下转型的 https 请求
     var useSSL;
