@@ -72,14 +72,14 @@ function onRequest(req, res) {
     // 是否为向下转型的 https 请求
     var useSSL;
     if (isFakeUrl(req.url)) {
-        req.url = restoreFakeUrl(req.url);
+        req.url = upgradeUrl(req.url);
         useSSL = true;
     }
 
     // 安全页面引用的资源，基本都是 https 的
     var refer = headers['referer'];
     if (refer && isFakeUrl(refer)) {
-        headers['referer'] = restoreFakeUrl(req.url);
+        headers['referer'] = upgradeUrl(req.url);
         useSSL = true;
     }
 
@@ -104,6 +104,8 @@ function forward(req, res, ssl) {
             return fail(res);
         }
     }
+
+    //console.log('[Go] ' + (ssl? 'https://' : 'http://') + host + req.url);
 
     // 请求参数
     var options = {
@@ -169,10 +171,7 @@ function handleResponse(clientReq, clientRes, serverRes) {
     var usrHeader = clientReq.headers;
 
     // SSL 相关检测
-    if (sslCheck(clientReq, clientRes, serverRes) == 'redir') {
-         // 代理 https 重定向
-        return forward(clientReq, clientRes, true); 
-    }
+    sslCheck(clientReq, clientRes, serverRes);
 
 
     // 非网页资源：直接转发
@@ -303,20 +302,30 @@ function processInject(istream, ostream) {
 
 
 // -------------------- sslproxy --------------------
-var FAKE_SYMBOL = /[?&]zh_cn$/;
-var mFakeSet = {};
+var FAKE_SYMBOL = 'zh_cn';
+var R_FAKE = /[?&]zh_cn$/;
+var R_HTTPS = /^https:/i;
+var R_HTTP = /^http:/i;
+
 
 function isFakeUrl(url) {
-    return (url in mFakeSet) || FAKE_SYMBOL.test(url);
+    return R_FAKE.test(url);
 }
 
-function restoreFakeUrl(url) {
-    return url.replace(FAKE_SYMBOL, '');
+function downgradeUrl(url) {
+    // change protocol, and make a mark
+    return url
+        .replace(R_HTTPS, 'http:') +
+        (url.indexOf('?') >= 0 ? '&' : '?') + FAKE_SYMBOL;
 }
 
-function addFakeUrl(url) {
-    mFakeSet[url] = true;
+function upgradeUrl(url) {
+    // change protocol, and remove mark
+    return url
+        .replace(R_HTTP, 'https:')
+        .replace(R_FAKE, '');
 }
+
 
 function sslCheck(clientReq, clientRes, serverRes) {
     var svrHeader = serverRes.headers;
@@ -337,16 +346,9 @@ function sslCheck(clientReq, clientRes, serverRes) {
     if (statusCode != 304 && 300 < statusCode && statusCode < 400) {
 
         var redir = svrHeader['location'];
-        if (redir && /^https:/i.test(redir)) {
+        if (redir && R_HTTPS.test(redir)) {
             console.warn('[!] redir to:', redir);
-
-            var parser = $url.parse(redir);
-            clientReq.url = parser.path;
-            clientReq.headers['host'] = parser.host;
-
-            // 记录该地址为 https 资源
-            addFakeUrl('http://' + parser.host + parser.path);
-            return 'redir';
+            svrHeader['location'] = downgradeUrl(redir);
         }
     }
 }
