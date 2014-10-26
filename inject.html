@@ -100,8 +100,8 @@
 
 		// restore later
 		setTimeout(function() {
-			el[urlProp] = url;
-		}, 200);
+			//el[urlProp] = url;
+		}, 0);
 	}
 
 	// hook <a href="https://...">
@@ -150,9 +150,12 @@
 	// monitor <iframe src="https://...">
 	//
 	function scanFrame(el) {
-		if (isHttpsUrl(el.src)) {
-			el.src = downgradeUrl(el.src);
-		}
+		//try {
+			if (isHttpsUrl(el.src)) {
+				el.src = downgradeUrl(el.src);
+			}
+		//} catch(e)
+		//{}
 	}
 
 	setInterval(function() {
