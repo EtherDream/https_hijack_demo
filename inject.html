@@ -1,40 +1,70 @@
 <script>
 /**
- * SSL 前端拦截脚本
- *   @version 0.0.3
- *   @author EtherDream 
+ * SSL frontend-hijack script
+ *   @version 0.1.0
+ *   @update 2014/10/26
  */
 (function() {
-	// 放弃 IE67 （IE8 暂时不支持，以后再考虑）
-	if (!window.addEventListener) {
-		return;
+
+	// for ie6,7,8
+	var DOM_3 = !!window.addEventListener;
+
+	function $bind(target, event, callback) {
+		if (DOM_3) {
+			target.addEventListener(event, callback);
+		}
+		else {
+			target.attachEvent('on' + event, callback);
+		}
 	}
+
+
+	function $operator(fn, thiz, $) {
+		// standard
+		if ('apply' in fn) {
+			return fn.apply(thiz, $);
+		}
+		// functor (old-ie)
+		switch ($.length) {
+			case 0 : return fn();
+			case 1 : return fn($[0]);
+			case 2 : return fn($[0], $[1]);
+			case 3 : return fn($[0], $[1], $[2]);
+			default: return fn($[0], $[1], $[2], $[3]);
+		}
+	}
+
 
 	var R_HTTPS = /^https:/i;
 	var FAKE_SYMBOL = 'zh_cn';
 
-	/**
-	 * 向下转型 https url
-	 *   将协议替换成 http，
-	 *   并在 url 里做上特殊记号，能让代理识别到。
-	 */
+	function isHttpsUrl(url) {
+		return url && R_HTTPS.test(url);
+	}
+
 	function downgradeUrl(url) {
+		// change protocol, and make a mark
 		return url.replace(R_HTTPS, 'http:') +
 					(/\?/.test(url) ? '&' : '?') + FAKE_SYMBOL;
 	}
 
-	// 钩子系统
+	//
+	// Hook System
+	//
+	var _hasOwnProperty = Object.prototype.hasOwnProperty;  // for old-IE
+
 	function hook(ns, key, factory) {
-		if (!ns.hasOwnProperty(key)) {
-			return;
+		if (!_hasOwnProperty.call(ns, key)) {
+			return false;
 		}
-		var old = ns[key];
-		var cur = factory(old);
-		cur._str_ = old + '';
-		ns[key] = cur;
+		var oldFn = ns[key];
+		var newFn = factory(oldFn);
+		newFn._str_ = oldFn + '';
+		ns[key] = newFn;
+		return true;
 	}
 
-	// 隐藏钩子源码
+	// hidden source code
 	function toString_factory(oldFn) {
 		return function() {
 			return this._str_ || oldFn.apply(this, arguments);
@@ -44,120 +74,92 @@
 	hook(Function.prototype, 'toSource', toString_factory);
 
 	//
-	// 监控 window.open 访问 https
+	// hook window.open('https://...')
 	//
 	function winopen_factory(oldFn) {
 		return function(url) {
-			if (url) {
+			if (isHttpsUrl(url)) {
 				arguments[0] = downgradeUrl(url);
 			}
-			return oldFn.apply(this, arguments);
+			return $operator(oldFn, this, arguments);
 		};
 	}
 
-	hook(Window.prototype, 'open', winopen_factory);
-	hook(window, 'open', winopen_factory);  // for firefox
+	if (window.Window) {
+		hook(Window.prototype, 'open', winopen_factory);		
+	}
+	hook(window, 'open', winopen_factory);
+
 
 	//
-	// 监控超链接访问 https
+	// Event Hook
 	//
-	document.addEventListener('click', function(e) {
-		var el = e.target;
+	function cheat(el, urlProp) {
+		var url = el[urlProp];
+		el[urlProp] = downgradeUrl(url);
+
+		// restore later
+		setTimeout(function() {
+			el[urlProp] = url;
+		}, 200);
+	}
+
+	// hook <a href="https://...">
+	$bind(document, 'click', function(e) {
+		e = e || event;
+		var el = e.target || e.srcElement;
 		do {
 			if (el.tagName == 'A') {
 				if (el.protocol == 'https:') {
-					hookEvent(el, 'onclick', 'href');
+					cheat(el, 'href');
 				}
 				break;
 			}
 		} while(el = el.parentNode);
-	}, true);
+	});
 
-	//
-	// 监控提交到 https 的表单
-	//
-	document.addEventListener('submit', function(e) {
-		var el = e.target;
-
-		if (R_HTTPS.test(el.action)) {
-			hookEvent(el, 'onsubmit', 'action');
-		}
-	}, true);
-
-
-	function hookEvent(el, eventName, urlProp) {
-		//
-		// 仅对 Event.AT_TARGET 阶段做拦截，
-		// 这样不会影响该元素的原有事件。
-		//
-		var onevent = el[eventName];
-
-		el[eventName] = function(e) {
-			// 执行原回调
-			var ret, err;
-			if (typeof onevent == 'function') {
-				try {
-					ret = onevent.apply(this, arguments);
-				}
-				catch(e) {
-					err = e;
-				}
-			}
-
-			// 暂时改成 http 链接
-			var url = el[urlProp];
-			el[urlProp] = downgradeUrl(url);
-
-			// 执行完还原
-			setTimeout(function() {
-				el[urlProp] = url;
-			}, 0);
-
-			// 删除钩子
-			el[eventName] = onevent;
-
-			if (err) throw err;
-			return ret;
-		};
-	}
-
-	//
-	// 替换页面中的框架页
-	//
-	function scanNode(el) {
-		if (el.tagName == 'IFRAME') {
-			if (R_HTTPS.test(el.src)) {
-				el.src = downgradeUrl(el.src);
-			}
-		}
-	}
-
-	function scanNodes(nodes) {
-		for (var i = 0, n = nodes.length; i < n; i++) {
-			scanNode(nodes[i]);
-		}
-	}
-
-	if (window.MutationObserver) {
-		var observer = new MutationObserver(function(records) {
-			for (var i = 0, n = records.length; i < n; i++) {
-				scanNodes(records[i].addedNodes);
-			}
-		});
-		observer.observe(document, {
-			subtree: true,
-			childList: true
-		});
+	// hook <form action="https://...">
+	if (DOM_3) {
+		$bind(document, 'submit', submitHandler);
 	}
 	else {
-		// 通过 window.frames 监控框架
-		var lastNum = 0;
 		setInterval(function() {
-			if (lastNum != frames.length) {
-				lastNum = frames.length;
-				scanNodes(frames);
+			var forms = document.getElementsByTagName('form');
+
+			for(var i = forms.length - 1; i >= 0; i--) {
+				var form = forms[i];
+				if (!form._hooked_) {
+					form._hooked_ = true;
+					$bind(form, 'submit', submitHandler);
+				}
 			}
-		}, 10);
+		}, 500);
 	}
+
+	function submitHandler(e) {
+		e = e || event;
+		var el = e.target || e.srcElement;
+
+		if (isHttpsUrl(el.action)) {
+			cheat(el, 'action');
+		}
+	}
+
+
+	//
+	// monitor <iframe src="https://...">
+	//
+	function scanFrame(el) {
+		if (isHttpsUrl(el.src)) {
+			el.src = downgradeUrl(el.src);
+		}
+	}
+
+	setInterval(function() {
+		var frames = document.getElementsByTagName('iframe');
+		for (var i = 0, n = frames.length; i < n; i++) {
+			scanFrame(frames[i]);
+		}
+	}, 200);
 })();
 </script>
