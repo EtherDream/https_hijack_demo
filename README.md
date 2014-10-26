@@ -19,6 +19,13 @@ node index.js
 ![proxy](https://raw.githubusercontent.com/fex-team/fex-team.github.io/master/img/ssl-frontend-hijack/downgrade_url_symbol.png)
 
 
+## Update
+
+* 0.1.0 (2014/10/26)
+
+  support ie6,7,8
+
+
 ## Detail
 
 [http://www.cnblogs.com/index-html/p/ssl-frontend-hijack.html](http://www.cnblogs.com/index-html/p/ssl-frontend-hijack.html)
