@@ -1,8 +1,8 @@
 <script>
 /**
  * SSL frontend-hijack script
- *   @version 0.1.0
- *   @update 2014/10/26
+ *   @version 0.1.1
+ *   @update 2014/10/28
  */
 (function() {
     // for ie6,7,8
@@ -120,7 +120,6 @@
                 if (el.protocol == 'https:') {
                     cheat(el, 'href');
                 }
-                break;
             }
         } while(el = el.parentNode);
     });
@@ -156,18 +155,21 @@
     //
     // monitor <iframe src="https://...">
     //
-    function scanFrame(el) {
-        if (isHttpsUrl(el.src)) {
-            el.src = downgradeUrl(el.src);
+    function scanFrames(el) {
+        var frames = document.getElementsByTagName('iframe');
+        for (var i = 0, n = frames.length; i < n; i++) {
+            var el = frames[i];
+            if (isHttpsUrl(el.src)) {
+                el.src = downgradeUrl(el.src);
+            }
         }
     }
 
-    setInterval(function() {
-        var frames = document.getElementsByTagName('iframe');
-        for (var i = 0, n = frames.length; i < n; i++) {
-            scanFrame(frames[i]);
-        }
-    }, 200);
+    var timer = setInterval(scanFrames, 20);
 
+    $bind(window, 'load', function() {
+        clearInterval(timer);
+        setInterval(scanFrames, 200);
+    });
 })();
 </script>
