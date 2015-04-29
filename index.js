@@ -1,6 +1,6 @@
 /**
  * Https Downgrade Proxy
- *   @version 0.0.3
+ *   @version 0.0.4
  *   @author EtherDream
  */
 'use strict';
@@ -79,7 +79,7 @@ function onRequest(req, res) {
     // 安全页面引用的资源，基本都是 https 的
     var refer = headers['referer'];
     if (refer && isFakeUrl(refer)) {
-        headers['referer'] = upgradeUrl(req.url);
+        headers['referer'] = upgradeUrl(refer);
         useSSL = true;
     }
 
@@ -130,34 +130,7 @@ function forward(req, res, ssl) {
         }
     });
 
-    //
-    // NodeJS 把 头部字段名 全都转为小写了，
-    // 一些网站（例如 QQ 空间）无法登录。
-    // 我们至少保证 `Host` 仍有大小写
-    //
-    midReq.setHeader('Host', host);
-
-
-    if (req._data) {
-        // 重定向 https 的请求
-        midReq.end(req._data);
-    }
-    else {
-        // 转发上传流量，同时做一备份
-        req.pipe(midReq);
-
-        var uploadChunks = [];
-        var uploadBytes = 0;
-
-        req.on('data', function(chunk) {
-            uploadChunks.push(chunk);
-            uploadBytes += chunk.length;
-        });
-
-        req.on('end', function() {
-            req._data = Buffer.concat(uploadChunks, uploadBytes);
-        });
-    }
+    req.pipe(midReq);
 }
 
 /**
